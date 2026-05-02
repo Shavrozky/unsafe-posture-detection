@@ -1,0 +1,22 @@
+camera:
+  source: 0
+  width: 1280
+  height: 720
+
+model:
+  weights: yolov8n-pose.pt
+  conf: 0.35
+  imgsz: 640
+
+posture:
+  fall_duration_sec: 3.0
+  bending_duration_sec: 5.0
+  hands_up_duration_sec: 2.0
+
+display:
+  window_name: Unsafe Posture Detection
+  show_keypoints: true
+  show_fps: true
+
+logging:
+  event_csv: outputs/events.csv
