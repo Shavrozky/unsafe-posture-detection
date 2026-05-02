@@ -44,21 +44,41 @@ def get_alert_threshold(label, config):
     return None
 
 
-def log_alert_if_needed(logger, last_event_time, label, duration):
-    """Log an unsafe posture event with a 5-second debounce."""
+def log_alert_if_needed(logger, last_event_time, label, duration, frame, config):
+    """Log an unsafe posture event with debounce and optional snapshot."""
+    event_cfg = config.get("event", {})
+
+    camera_id = event_cfg.get("camera_id", "cam_01")
+    cooldown_sec = event_cfg.get("cooldown_sec", 5)
+    save_snapshot = event_cfg.get("save_snapshot", True)
+    snapshot_dir = event_cfg.get("snapshot_dir", "outputs/clips")
+
     now = time.time()
-    if now - last_event_time.get(label, 0) > 5:
+
+    if now - last_event_time.get(label, 0) > cooldown_sec:
+        snapshot_path = ""
+
+        if save_snapshot:
+            snapshot_path = logger.save_snapshot(
+                frame=frame,
+                camera_id=camera_id,
+                posture=label,
+                snapshot_dir=snapshot_dir
+            )
+
         logger.log(
-            camera_id="cam_01",
+            camera_id=camera_id,
             posture=label,
             status="unsafe",
-            duration_sec=duration
+            duration_sec=duration,
+            snapshot_path=snapshot_path
         )
+
         last_event_time[label] = now
-        print(f"[ALERT] {label} detected for {duration:.2f}s")
+        print(f"[ALERT] {label} detected for {duration:.2f}s | snapshot={snapshot_path}")
 
 
-def process_detection(detection, posture_rules, smoother, logger, last_event_time, config):
+def process_detection(detection, posture_rules, smoother, logger, last_event_time, config, frame):
     """Classify a single detection and trigger an alert if the threshold is exceeded."""
     raw_label = posture_rules.classify(detection["keypoints"])
     label, duration = smoother.update(raw_label)
@@ -67,7 +87,14 @@ def process_detection(detection, posture_rules, smoother, logger, last_event_tim
     alert = threshold is not None and duration >= threshold
 
     if alert:
-        log_alert_if_needed(logger, last_event_time, label, duration)
+        log_alert_if_needed(
+            logger=logger,
+            last_event_time=last_event_time,
+            label=label,
+            duration=duration,
+            frame=frame,
+            config=config
+        )
 
     return {"label": label, "duration": duration, "alert": alert}
 
@@ -94,7 +121,15 @@ def run_loop(cap, pose_estimator, posture_rules, smoother, logger, visualizer, c
 
         detections = pose_estimator.predict(frame)
         labels_info = [
-            process_detection(d, posture_rules, smoother, logger, last_event_time, config)
+            process_detection(
+                detection=d,
+                posture_rules=posture_rules,
+                smoother=smoother,
+                logger=logger,
+                last_event_time=last_event_time,
+                config=config,
+                frame=frame
+            )
             for d in detections
         ]
 

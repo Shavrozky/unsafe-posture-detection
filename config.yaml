@@ -13,6 +13,12 @@ posture:
   bending_duration_sec: 5.0
   hands_up_duration_sec: 2.0
 
+event:
+  camera_id: cam_01
+  save_snapshot: true
+  snapshot_dir: outputs/clips
+  cooldown_sec: 5
+
 display:
   window_name: Unsafe Posture Detection
   show_keypoints: true
